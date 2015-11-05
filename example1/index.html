@@ -1,0 +1,74 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+
+<script type="text/javascript">
+    var gl; //WebGL context
+    var shaderMemory = []; //Keeps addresses of shader programm variables
+
+	//Link and install compiled shaders
+    function initShaders() {
+        //Fragment (color) shader
+        var fShader = gl.createShader(gl.FRAGMENT_SHADER);
+        gl.shaderSource(fShader, "void main(void) {gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);}");
+        gl.compileShader(fShader);
+        
+        //Vertex shader
+        var vShader = gl.createShader(gl.VERTEX_SHADER);
+        gl.shaderSource(vShader,"attribute vec4 aVertexPosition; void main(void) {gl_Position =  aVertexPosition;}");
+        gl.compileShader(vShader);
+        
+        var shaderProgram = gl.createProgram();
+        //Attach compiled shaders
+        gl.attachShader(shaderProgram, vShader);
+        gl.attachShader(shaderProgram, fShader);
+        
+        //Link and install program to the GPU
+        gl.linkProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
+		
+		//Get and save variable addresses
+        shaderMemory["aVertexPosition"] = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderMemory["aVertexPosition"]);
+    }
+
+    function drawScene() {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height); //Init view port
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT); //Clear colors
+        
+        var vertices = [
+             0.5,  0.5, 0.0, 2.0,//top right
+             0.5, -0.5, 0.0, 2.0,//bottom right
+             -0.5, 0.5, 0.0, 2.0,//top left
+             -0.5, -0.5, 0.0, 2.0//bottom left
+        ];
+        
+        //Create a vertex buffer
+        var triangleVertexPositionBuffer = gl.createBuffer();
+        //Bind the buffer to work with it
+        gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
+        //Move js array to the binded buffer
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        var itemSize = 4; //four component x,y,z,w
+        var numItems = vertices.length / itemSize; //four points
+        //Say to GL about our vertex list
+        gl.vertexAttribPointer(shaderMemory["aVertexPosition"], itemSize, gl.FLOAT, false, 0, 0);
+        //And draw it
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, numItems);
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("main_canvas");
+        gl = canvas.getContext("webgl");			
+        initShaders();
+        drawScene();
+    }
+    
+</script>
+</head>
+
+<body onload="webGLStart();">
+    <canvas id="main_canvas" style="border: none;" width="500" height="500"></canvas>
+</body>
+</html>

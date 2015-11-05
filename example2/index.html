@@ -1,0 +1,159 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+
+<script id="shader-fs" type="x-shader/x-fragment">
+    precision mediump float; //medium float precision
+
+	varying vec2 vCoord;
+
+    void main(void) {
+		//Calculate fragment color
+		float x = vCoord.x - 0.5;
+		float y = vCoord.y - 0.5;
+		float d = sqrt(x * x + y * y);
+		if ((d > 0.4) && (d < 0.5)) 
+			gl_FragColor = vec4(0.0,vCoord, 1.0);
+        else
+			gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+    }
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition; //current vertex position
+
+    uniform mat4 uMVMatrix; //move matrix
+    uniform mat4 uPMatrix; //perspective matrix
+    
+    varying vec2 vCoord;
+
+    void main(void) {
+		//Calculate vertex position
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vCoord = vec2((aVertexPosition.x + 1.0) / 2.0, (aVertexPosition.y + 1.0) / 2.0);
+    }
+</script>
+
+<script type="text/javascript">
+    var gl; //WebGL context
+    var shaderMemory = []; //Keeps addresses of shader programm variables
+
+	var a1 = 0;
+	var a2 = 0;
+
+	//Find and compile shader
+    function getShader(id) {
+        var shaderScript = document.getElementById(id);
+        var shader;
+        if (shaderScript.type == "x-shader/x-fragment")
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+		if (shaderScript.type == "x-shader/x-vertex") 
+			shader = gl.createShader(gl.VERTEX_SHADER);
+			
+        gl.shaderSource(shader, shaderScript.innerHTML);
+        gl.compileShader(shader);
+
+		console.log(gl.getShaderInfoLog(shader));
+
+        return shader;
+    }
+
+	//Link and install compiled shaders
+    function initShaders() {
+		//Create a shader program
+        var shaderProgram = gl.createProgram();
+        //Attach compiled shaders
+        gl.attachShader(shaderProgram, getShader("shader-vs"));
+        gl.attachShader(shaderProgram, getShader("shader-fs"));
+        //Link and install program to GPU
+        gl.linkProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
+		
+		//Get and save variable addresses
+        shaderMemory["aVertexPosition"] = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+        shaderMemory["uPMatrix"] = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderMemory["uMVMatrix"] = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+    }
+
+        var cos = Math.cos;
+        var sin = Math.sin;
+        var tan = Math.tan;
+
+    function drawScene() {
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+		//Perspective matrix
+        var ar = gl.canvas.width / gl.canvas.height;
+        var angle = Math.PI / 8; //45 deg
+        var far = 100;
+        var near = 1;
+        var pMatrixSimple = new Float32Array(
+			[1 / (ar * tan(angle / 2)), 0, 0, 0,
+			0,1 / tan(angle / 2),0,0,
+			0,0, (- near - far) / (near - far), (2 * near * far) / (near - far),
+			0,0,0,1]);
+
+		//Move matrix
+		var x = 0;
+		var y = 0;
+		var z = -7;
+		var aX = a2;
+		var aY = a1;
+        var mvMatrixSimple = new Float32Array(
+			[cos(aY), 0, sin(aY), 0,
+			-sin(aY) * sin(aX),  cos(aX), cos(aY) * sin(aX), 0,
+			-sin(aY) * cos(aX), -sin(aX), cos(aY) * cos(aX), 0,
+			x, y, z, 1]);
+        
+        //Transport matrixes to the shaiders
+        gl.uniformMatrix4fv(shaderMemory["uPMatrix"], false, pMatrixSimple);
+        gl.uniformMatrix4fv(shaderMemory["uMVMatrix"], false, mvMatrixSimple);
+        
+        //Create a vertex buffer
+        var triangleVertexPositionBuffer = gl.createBuffer();
+        //Bind the buffer to work with it
+        gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
+        var vertices = [
+             1.0,  1.0,  0.0,//top left
+             1.0, -1.0,  0.0,//bottom left
+             -1.0, 1.0,  0.0,//top right
+             -1.0, -1.0, 0.0//bottom right
+        ];
+        //Move js array to the binded buffer
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        var itemSize = 3; //three component
+        var numItems = vertices.length / itemSize; //four points
+        //Say to GL about our vertex list
+        gl.vertexAttribPointer(shaderMemory["aVertexPosition"], itemSize, gl.FLOAT, false, 0, 0);
+        //And draw it
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, numItems);
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("main_canvas");
+        gl = canvas.getContext("webgl");
+			
+        initShaders();
+
+        drawScene();
+        
+        canvas.onmousemove = function onMouseMove(event) {
+				a1 = event.clientX / 100;
+				a2 = event.clientY / 100;
+				drawScene();
+			};
+    }
+    
+
+    
+</script>
+</head>
+
+<body onload="webGLStart();">
+    <canvas id="main_canvas" style="border: none;" width="500" height="500"></canvas>
+</body>
+</html>
