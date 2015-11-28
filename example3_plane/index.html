@@ -1,0 +1,197 @@
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+
+<script id="shader-fs" type="x-shader/x-fragment">
+    precision mediump float; //medium float precision
+
+	varying vec2 vTextureCoord;
+	
+	uniform sampler2D uTexture;
+
+    void main(void) {
+		gl_FragColor = vec4(texture2D(uTexture, vTextureCoord).rgb,1);
+    }
+</script>
+
+<script id="shader-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition; //current vertex position
+    attribute vec2 aTextureCoord;
+
+    uniform mat4 uMVMatrix; //move matrix
+    uniform mat4 uPMatrix; //perspective matrix
+    
+    varying vec2 vTextureCoord;
+
+    void main(void) {
+		//Calculate vertex position
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vTextureCoord = aTextureCoord;
+    }
+</script>
+
+<script type="text/javascript">
+    var gl; //WebGL context
+    var shaderMemory = []; //Keeps addresses of shader programm variables
+    var glTexture;
+
+	var a1 = 0;
+	var a2 = 0;
+
+	//Find and compile shader
+    function getShader(id) {
+        var shaderScript = document.getElementById(id);
+        var shader;
+        if (shaderScript.type == "x-shader/x-fragment")
+            shader = gl.createShader(gl.FRAGMENT_SHADER);
+		if (shaderScript.type == "x-shader/x-vertex") 
+			shader = gl.createShader(gl.VERTEX_SHADER);
+			
+        gl.shaderSource(shader, shaderScript.innerHTML);
+        gl.compileShader(shader);
+
+		console.log(gl.getShaderInfoLog(shader));
+
+        return shader;
+    }
+
+	//Link and install compiled shaders
+    function initShaders() {
+		//Create a shader program
+        var shaderProgram = gl.createProgram();
+        //Attach compiled shaders
+        gl.attachShader(shaderProgram, getShader("shader-vs"));
+        gl.attachShader(shaderProgram, getShader("shader-fs"));
+        //Link and install program to GPU
+        gl.linkProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
+		
+		//Get and save variable addresses
+        shaderMemory["aVertexPosition"] = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+        shaderMemory["aTextureCoord"] = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+        gl.enableVertexAttribArray(shaderMemory["aTextureCoord"]);
+        shaderMemory["uPMatrix"] = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderMemory["uMVMatrix"] = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        shaderMemory["uTexture"] = gl.getUniformLocation(shaderProgram, "uTexture");
+    }
+
+        var cos = Math.cos;
+        var sin = Math.sin;
+        var tan = Math.tan;
+
+    function drawScene() {
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+		//Perspective matrix
+        var ar = gl.canvas.width / gl.canvas.height;
+        var angle = Math.PI / 8; //45 deg
+        var far = 100;
+        var near = 1;
+        var pMatrixSimple = new Float32Array(
+			[1 / (ar * tan(angle / 2)), 0, 0, 0,
+			0,1 / tan(angle / 2),0,0,
+			0,0, (- near - far) / (near - far), (2 * near * far) / (near - far),
+			0,0,0,1]);
+
+		//Move matrix
+		var x = 0;
+		var y = 0;
+		var z = -7;
+		var aX = a2;
+		var aY = a1;
+        var mvMatrixSimple = new Float32Array(
+			[cos(aY), 0, sin(aY), 0,
+			-sin(aY) * sin(aX),  cos(aX), cos(aY) * sin(aX), 0,
+			-sin(aY) * cos(aX), -sin(aX), cos(aY) * cos(aX), 0,
+			x, y, z, 1]);
+        
+        //Transport matrixes to the shaiders
+        gl.uniformMatrix4fv(shaderMemory["uPMatrix"], false, pMatrixSimple);
+        gl.uniformMatrix4fv(shaderMemory["uMVMatrix"], false, mvMatrixSimple);
+        
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D,glTexture);
+        gl.uniform1i(shaderMemory["uTexture"],0);
+        
+        //TEXTURE ---------------
+		//Bind the buffer to work with it
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+        var coords = new Float32Array([
+             0.0, 0.0,//top left
+             0.0, 1.0, //bottom left
+             1.0, 0.0,//top right
+             1.0, 1.0//bottom right
+        ]);
+        //Move js array to the binded buffer
+        gl.bufferData(gl.ARRAY_BUFFER, coords, gl.STATIC_DRAW);
+        var itemSize = 2; //three component
+        var numItems = coords.length / itemSize; //four points
+        //Say to GL about our vertex list
+        gl.vertexAttribPointer(shaderMemory["aTextureCoord"], itemSize, gl.FLOAT, false, 0, 0);
+        
+        //Create a vertex buffer
+        var triangleVertexPositionBuffer = gl.createBuffer();
+        //Bind the buffer to work with it
+        gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
+        var vertices = [
+             1.0,  1.0,  0.0,//top left
+             1.0, -1.0,  0.0,//bottom left
+             -1.0, 1.0,  0.0,//top right
+             -1.0, -1.0, 0.0//bottom right
+        ];
+        //Move js array to the binded buffer
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        var itemSize = 3; //three component
+        var numItems = vertices.length / itemSize; //four points
+        //Say to GL about our vertex list
+        gl.vertexAttribPointer(shaderMemory["aVertexPosition"], itemSize, gl.FLOAT, false, 0, 0);
+        //And draw it
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, numItems);
+    }
+
+	function initTexture(fileName, onReady) {
+	 var glTexture = gl.createTexture();
+	 glTexture.image = new Image();
+	 glTexture.image.onload = function () {
+	   gl.bindTexture(gl.TEXTURE_2D, glTexture);
+	   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+	   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, glTexture.image);
+	   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.GL_LINEAR); 
+	   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	   gl.bindTexture(gl.TEXTURE_2D, null);
+	   onReady(glTexture);
+	  }
+	 glTexture.image.src = fileName;
+	}
+
+    function webGLStart() {
+        var canvas = document.getElementById("main_canvas");
+        gl = canvas.getContext("webgl");
+		
+		initShaders();
+		
+		initTexture("abuksigun.png", function (texture) { 
+			glTexture = texture;
+			drawScene();
+			canvas.onmousemove = function onMouseMove(event) {
+				a1 = event.clientX / 100;
+				a2 = event.clientY / 100;
+				drawScene();
+			};
+		});
+		
+    }
+    
+
+    
+</script>
+</head>
+
+<body onload="webGLStart();">
+    <canvas id="main_canvas" style="border: none;" width="500" height="500"></canvas>
+</body>
+</html>
