@@ -100,7 +100,7 @@
 		//Move matrix
 		var x = 0;
 		var y = 0;
-		var z = -7;
+		var z = -5;
 		var aX = a2;
 		var aY = a1;
         var mvMatrixSimple = new Float32Array(
@@ -157,13 +157,15 @@
 	 var glTexture = gl.createTexture();
 	 glTexture.image = new Image();
 	 glTexture.image.onload = function () {
-	   gl.bindTexture(gl.TEXTURE_2D, glTexture);
-	   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-	   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, glTexture.image);
-	   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.GL_LINEAR); 
-	   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	   gl.bindTexture(gl.TEXTURE_2D, null);
-	   onReady(glTexture);
+		gl.bindTexture(gl.TEXTURE_2D, glTexture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, glTexture.image);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); 
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+		onReady(glTexture);
 	  }
 	 glTexture.image.src = fileName;
 	}
