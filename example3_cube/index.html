@@ -5,38 +5,35 @@
 <script id="shader-fs" type="x-shader/x-fragment">
     precision mediump float; //medium float precision
 
-	varying vec2 vCoord;
+	varying vec2 vTextureCoord;
+	
+	uniform sampler2D uTexture;
 
     void main(void) {
-		//Calculate fragment color
-		float x = vCoord.x - 0.5;
-		float y = vCoord.y - 0.5;
-		float d = sqrt(x * x + y * y);
-		if ((d > 0.4) && (d < 0.5)) 
-			gl_FragColor = vec4(0.0,vCoord, 1.0);
-        else
-			gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+		gl_FragColor = vec4(texture2D(uTexture, vTextureCoord).rgb,1);
     }
 </script>
 
 <script id="shader-vs" type="x-shader/x-vertex">
     attribute vec3 aVertexPosition; //current vertex position
+    attribute vec2 aTextureCoord;
 
     uniform mat4 uMVMatrix; //move matrix
     uniform mat4 uPMatrix; //perspective matrix
     
-    varying vec2 vCoord;
+    varying vec2 vTextureCoord;
 
     void main(void) {
 		//Calculate vertex position
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-        vCoord = vec2((aVertexPosition.x + 1.0) / 2.0, (aVertexPosition.y + 1.0) / 2.0);
+        vTextureCoord = aTextureCoord;
     }
 </script>
 
 <script type="text/javascript">
     var gl; //WebGL context
     var shaderMemory = []; //Keeps addresses of shader programm variables
+    var glTexture;
 
 	var a1 = 0;
 	var a2 = 0;
@@ -72,8 +69,11 @@
 		//Get and save variable addresses
         shaderMemory["aVertexPosition"] = gl.getAttribLocation(shaderProgram, "aVertexPosition");
         gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+        shaderMemory["aTextureCoord"] = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+        gl.enableVertexAttribArray(shaderMemory["aTextureCoord"]);
         shaderMemory["uPMatrix"] = gl.getUniformLocation(shaderProgram, "uPMatrix");
         shaderMemory["uMVMatrix"] = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        shaderMemory["uTexture"] = gl.getUniformLocation(shaderProgram, "uTexture");
     }
 
         var cos = Math.cos;
@@ -113,16 +113,57 @@
         gl.uniformMatrix4fv(shaderMemory["uPMatrix"], false, pMatrixSimple);
         gl.uniformMatrix4fv(shaderMemory["uMVMatrix"], false, mvMatrixSimple);
         
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D,glTexture);
+        gl.uniform1i(shaderMemory["uTexture"],0);
+        
+        //TEXTURE ---------------
+		//Bind the buffer to work with it
+        gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+        var coords = new Float32Array([
+             0.0, 0.0,//top left
+             0.0, 1.0, //bottom left
+             1.0, 0.0,//top right
+             1.0, 1.0,//bottom right
+             0.0, 0.0,//top left
+             0.0, 1.0, //bottom left
+             1.0, 0.0,//top right
+             1.0, 1.0,//bottom right
+             0.0, 0.0,//top left
+             0.0, 1.0, //bottom left
+             1.0, 0.0,//top right
+             1.0, 1.0,//bottom right
+             0.0, 0.0,//top left
+             0.0, 1.0, //bottom left
+        ]);
+        //Move js array to the binded buffer
+        gl.bufferData(gl.ARRAY_BUFFER, coords, gl.STATIC_DRAW);
+        var itemSize = 2; //three component
+        var numItems = coords.length / itemSize; //four points
+        //Say to GL about our vertex list
+        gl.vertexAttribPointer(shaderMemory["aTextureCoord"], itemSize, gl.FLOAT, false, 0, 0);
+        
         //Create a vertex buffer
         var triangleVertexPositionBuffer = gl.createBuffer();
         //Bind the buffer to work with it
         gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
         var vertices = [
-             1.0,  1.0,  0.0,//top left
-             1.0, -1.0,  0.0,//bottom left
-             -1.0, 1.0,  0.0,//top right
-             -1.0, -1.0, 0.0//bottom right
+             -1.0,  1.0,  -1.0,//top left
+             1.0, 1.0,  -1.0,//bottom left
+             -1.0, -1.0,  -1.0,//top right
+             1.0, -1.0, -1.0,//bottom right
+             1.0,  -1.0,  1.0,//top left
+             1.0, 1.0,  -1.0,//bottom left
+             1.0, 1.0,  1.0,//top right
+             -1.0, 1.0, -1.0,//bottom right
+             -1.0, 1.0,  1.0,//top left
+             -1.0, -1.0,  -1.0,//bottom left
+             -1.0, -1.0,  1.0,//top right
+             1.0, -1.0, 1.0,//bottom right
+             -1.0, 1.0,  1.0,//top right
+             1.0, 1.0, 1.0//bottom right
         ];
+
         //Move js array to the binded buffer
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         var itemSize = 3; //three component
@@ -133,19 +174,37 @@
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, numItems);
     }
 
+	function initTexture(fileName, onReady) {
+	 var glTexture = gl.createTexture();
+	 glTexture.image = new Image();
+	 glTexture.image.onload = function () {
+	   gl.bindTexture(gl.TEXTURE_2D, glTexture);
+	   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+	   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, glTexture.image);
+	   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.GL_LINEAR); 
+	   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	   gl.bindTexture(gl.TEXTURE_2D, null);
+	   onReady(glTexture);
+	  }
+	 glTexture.image.src = fileName;
+	}
+
     function webGLStart() {
         var canvas = document.getElementById("main_canvas");
         gl = canvas.getContext("webgl");
-			
-        initShaders();
-
-        drawScene();
-        
-        canvas.onmousemove = function onMouseMove(event) {
+		
+		initShaders();
+		
+		initTexture("abuksigun.png", function (texture) { 
+			glTexture = texture;
+			drawScene();
+			canvas.onmousemove = function onMouseMove(event) {
 				a1 = event.clientX / 100;
 				a2 = event.clientY / 100;
 				drawScene();
 			};
+		});
+		
     }
     
 
