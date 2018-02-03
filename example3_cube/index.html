@@ -218,9 +218,10 @@
         //And draw it
 		gl.drawArrays(gl.TRIANGLES, 0, numItems);
     }
-
+	
 	function initTexture(fileName, onReady) {
 		var glTexture = gl.createTexture();
+		glTexture.crossOrigin = "";
 		glTexture.image = new Image();
 		glTexture.image.onload = function () {
 			gl.bindTexture(gl.TEXTURE_2D, glTexture);
